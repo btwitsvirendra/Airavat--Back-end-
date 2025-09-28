@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Prisma schema mapped to your existing Postgres tables created by pgAdmin
+// Models use PascalCase names and are mapped to the snake_case table names
+
+model Seller {
+  seller_id      BigInt                 @id @default(autoincrement()) @db.BigInt
+  company_name   String                 @db.VarChar(255)
+  contact_person String?                @db.VarChar(100)
+  email          String                 @unique @db.VarChar(255)
+  phone          String?                @db.VarChar(40)
+  is_verified    Boolean                @default(false)
+  is_active      Boolean                @default(true)
+  created_at     DateTime               @default(now())
+  updated_at     DateTime               @default(now())
+
+  // relations
+  addresses      SellerAddress[]        @relation("Seller_addresses")
+  auth           SellerAuth?            @relation("Seller_auth")
+  bank_accounts  SellerBankAccount[]    @relation("Seller_bank_accounts")
+  documents      SellerDocument[]       @relation("Seller_documents")
+  stats          SellerStat?            @relation("Seller_stats")
+
+  @@map("sellers")
+}
+
+model SellerAddress {
+  address_id   BigInt   @id @default(autoincrement()) @db.BigInt
+  seller_id    BigInt   @db.BigInt
+  label        String?  @db.VarChar(50)
+  address      String?  @db.Text
+  city         String?  @db.VarChar(100)
+  state        String?  @db.VarChar(100)
+  country      String?  @db.VarChar(100)
+  postal_code  String?  @db.VarChar(20)
+  is_primary   Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  seller       Seller   @relation("Seller_addresses", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+
+  @@map("seller_addresses")
+  @@index([seller_id])
+}
+
+model SellerAuth {
+  seller_id            BigInt   @id @db.BigInt
+  password_hash        String   @db.Text
+  last_password_change DateTime?
+  failed_logins        Int      @default(0)
+
+  seller               Seller   @relation("Seller_auth", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+
+  @@map("seller_auth")
+}
+
+model SellerBankAccount {
+  bank_account_id BigInt   @id @default(autoincrement()) @db.BigInt
+  seller_id       BigInt   @db.BigInt
+  bank_name       String?  @db.VarChar(100)
+  account_token   String?  @db.Text
+  ifsc_code       String?  @db.VarChar(20)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+
+  seller          Seller   @relation("Seller_bank_accounts", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+
+  @@map("seller_bank_accounts")
+  @@index([seller_id])
+}
+
+model SellerDocument {
+  document_id  BigInt   @id @default(autoincrement()) @db.BigInt
+  seller_id    BigInt?  @db.BigInt
+  doc_type     String?  @db.VarChar(50)
+  storage_key  String   @db.Text
+  verified     Boolean  @default(false)
+  uploaded_at  DateTime @default(now())
+
+  seller       Seller?  @relation("Seller_documents", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+
+  @@map("seller_documents")
+  @@index([seller_id])
+}
+
+model SellerStat {
+  seller_id        BigInt   @id @db.BigInt
+  commission_rate  Decimal? @default("5.00") @db.Decimal(5,2)
+  rating           Decimal? @default("0.00") @db.Decimal(3,2)
+  total_sales_cents BigInt  @default(0) @db.BigInt
+  last_sale_at     DateTime?
+
+  seller           Seller   @relation("Seller_stats", fields: [seller_id], references: [seller_id], onDelete: Cascade)
+
+  @@map("seller_stats")
+}
