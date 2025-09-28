@@ -1,4 +1,5 @@
 import express, {Express, Request, Response} from 'express';
+import SellerRoutes from './routes/seller-routes';
 import client from './config/db';
 import dotenv from 'dotenv';
 
@@ -8,25 +9,13 @@ const app: Express = express();
 
 const port = process.env.PORT || 3000;
 
-app.get('/',async (req: Request, res: Response) => {
+app.use(express.json());
 
-    try {
-        const result = await client.query('SELECT * FROM sellers;');
-        res.json({
-            success: true,
-            data: result.rows
-        })
-    } catch (error: any) {
-        res.json({
-            success: false,
-            error: error.message
-        })
-    }
-});
-
-app.get("/something", (req: Request, res: Response) => {
+app.get("/", (req: Request, res: Response) => {
     res.send("This is something else!");
 });
+
+app.use("/api/v1/sellers", SellerRoutes);
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
