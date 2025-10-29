@@ -22,7 +22,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 app.get("/", (req: Request, res: Response) => {
-    res.send("Aladinnow API Server is running!");
+    res.send("Airavat API Server is running!");
 });
 
 // API Routes

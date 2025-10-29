@@ -1,4 +1,4 @@
-# 🚀 Quick Start Guide - Aladinnow API
+# 🚀 Quick Start Guide - Airavat API
 
 ## Installation
 

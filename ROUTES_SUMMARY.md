@@ -1,7 +1,7 @@
-# Aladinnow API Routes Summary
+# Airavat API Routes Summary
 
 ## Overview
-This document provides a complete overview of all API routes created for the Aladinnow B2B marketplace platform based on the database schema.
+This document provides a complete overview of all API routes created for the Airavat B2B marketplace platform based on the database schema.
 
 ## Created Files Structure
 

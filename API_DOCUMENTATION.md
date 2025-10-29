@@ -1,4 +1,4 @@
-# Aladinnow API Documentation
+# Airavat API Documentation
 
 ## Base URL
 ```

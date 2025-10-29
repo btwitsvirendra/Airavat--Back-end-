@@ -1,8 +1,8 @@
-# 🎉 Aladinnow API - Complete Route Implementation
+# 🎉 Airavat API - Complete Route Implementation
 
 ## ✅ Project Completion Status: 100%
 
-All routes for the Aladinnow B2B marketplace database have been successfully created and integrated.
+All routes for the Airavat B2B marketplace database have been successfully created and integrated.
 
 ---
 
@@ -247,7 +247,7 @@ npm run dev
 ### Test Basic Endpoint
 ```bash
 curl http://localhost:3000
-# Response: "Aladinnow API Server is running!"
+# Response: "Airavat API Server is running!"
 ```
 
 ### Test User Registration
@@ -319,7 +319,7 @@ Based on the provided database diagram:
 
 ### Environment Variables (.env)
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/aladinnow"
+DATABASE_URL="postgresql://user:password@localhost:5432/Airavat"
 PORT=3000
 JWT_SECRET=your-secret-key
 ```
