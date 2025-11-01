@@ -1,7 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import { convertBigIntToString } from '../utils/main';
+import {sign} from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const prisma = new PrismaClient();
 
@@ -23,6 +27,15 @@ export async function createUser(req: Request, res: Response) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Check if user with this email already exists
+    const existingUser = await prisma.users.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return res.status(409).json({ error: "User with this email already exists" });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -34,7 +47,7 @@ export async function createUser(req: Request, res: Response) {
         is_verified: is_verified || false,
         status: status || 'active',
         email_verified: email_verified || false,
-        last_login,
+        last_login: last_login || null,
         created_at: created_at || new Date(),
       },
     });
@@ -54,15 +67,7 @@ export async function getAllUsers(req: Request, res: Response) {
   try {
     const users = await prisma.users.findMany({
       select: {
-        user_id: true,
-        email: true,
-        role: true,
-        is_verified: true,
-        status: true,
-        email_verified: true,
-        last_login: true,
-        created_at: true,
-        updated_at: true,
+        user_id: true
       }
     });
     const safeUsers = convertBigIntToString(users);
@@ -77,18 +82,7 @@ export async function getUserById(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const user = await prisma.users.findUnique({
-      where: { user_id: BigInt(id) },
-      select: {
-        user_id: true,
-        email: true,
-        role: true,
-        is_verified: true,
-        status: true,
-        email_verified: true,
-        last_login: true,
-        created_at: true,
-        updated_at: true,
-      }
+      where: { user_id: BigInt(id) }
     });
 
     if (!user) {
@@ -115,18 +109,7 @@ export async function updateUser(req: Request, res: Response) {
 
     const updatedUser = await prisma.users.update({
       where: { user_id: BigInt(id) },
-      data: updateData,
-      select: {
-        user_id: true,
-        email: true,
-        role: true,
-        is_verified: true,
-        status: true,
-        email_verified: true,
-        last_login: true,
-        created_at: true,
-        updated_at: true,
-      }
+      data: updateData
     });
 
     const safeUser = convertBigIntToString(updatedUser);
@@ -187,7 +170,9 @@ export async function loginUser(req: Request, res: Response) {
       status: user.status,
     });
 
-    res.json({ message: "Login successful", user: safeUser });
+    const token = sign({ userId: user.user_id.toString(), role: user.role }, process.env.JWT_SECRET || 'your_jwt_secret', { expiresIn: '1h' });
+
+    res.json({ message: "Login successful", user: safeUser, token });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Login failed" });
   }
