@@ -7,8 +7,11 @@ import {
   deleteProduct,
   searchProducts 
 } from "../controllers/product-controller";
+import { authenticateToken, isSellerOrAdmin } from "../middlewares/auth-middleware";
 
 const router = Router();
+
+router.use(authenticateToken, isSellerOrAdmin);
 
 // Product routes
 router.post("/", createProduct);

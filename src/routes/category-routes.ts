@@ -7,8 +7,11 @@ import {
   updateCategory, 
   deleteCategory 
 } from "../controllers/category-controller";
+import { authenticateToken, isAdmin } from "../middlewares/auth-middleware";
 
 const router = Router();
+
+router.use(authenticateToken, isAdmin);
 
 // Category routes
 router.post("/", createCategory);
