@@ -1,5 +1,4 @@
 import express, {Express, Request, Response} from 'express';
-import SellerRoutes from './routes/seller-routes';
 import UserRoutes from './routes/user-routes';
 import BusinessRoutes from './routes/business-routes';
 import CategoryRoutes from './routes/category-routes';
@@ -33,7 +32,6 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 // API Routes
-app.use("/api/v1/sellers", SellerRoutes);
 app.use("/api/v1/users", UserRoutes);
 app.use("/api/v1/businesses", BusinessRoutes);
 app.use("/api/v1/categories", CategoryRoutes);

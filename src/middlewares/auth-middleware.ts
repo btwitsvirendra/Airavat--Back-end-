@@ -11,6 +11,7 @@ declare global {
             user?: {
                 userId: string;
                 role: string;
+                email?: string;
             };
         }
     }
@@ -20,6 +21,7 @@ declare global {
 interface JwtPayload {
     userId: string;
     role: string;
+    email?: string;
     iat?: number;
     exp?: number;
 }
@@ -52,6 +54,7 @@ export const authenticateToken = (
         req.user = {
             userId: decoded.userId,
             role: decoded.role,
+            email: decoded.email,
         };
 
         next();
@@ -92,7 +95,31 @@ export const isAdmin = (
 };
 
 /**
- * Middleware to verify if user is a Seller
+ * Middleware to verify if user is a Business Owner
+ */
+export const isBusinessOwner = (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): void => {
+    if (!req.user) {
+        res.status(401).json({ error: 'Authentication required.' });
+        return;
+    }
+
+    if (req.user.role !== 'business_owner' && req.user.role !== 'admin') {
+        res.status(403).json({
+            error: 'Access denied. Business owner privileges required.'
+        });
+        return;
+    }
+
+    next();
+};
+
+/**
+ * Middleware to verify if user is a Seller (deprecated - use business roles instead)
+ * @deprecated Use business-level role checking instead
  */
 export const isSeller = (
     req: Request,
@@ -104,7 +131,7 @@ export const isSeller = (
         return;
     }
 
-    if (req.user.role !== 'seller') {
+    if (req.user.role !== 'seller' && req.user.role !== 'admin') {
         res.status(403).json({
             error: 'Access denied. Seller privileges required.'
         });
@@ -115,7 +142,8 @@ export const isSeller = (
 };
 
 /**
- * Middleware to verify if user is a regular User (buyer)
+ * Middleware to verify if user is a regular User (buyer) (deprecated)
+ * @deprecated Use business-level role checking instead
  */
 export const isUser = (
     req: Request,
@@ -127,7 +155,7 @@ export const isUser = (
         return;
     }
 
-    if (req.user.role !== 'user') {
+    if (req.user.role !== 'user' && req.user.role !== 'admin') {
         res.status(403).json({
             error: 'Access denied. User privileges required.'
         });
@@ -138,7 +166,8 @@ export const isUser = (
 };
 
 /**
- * Middleware to verify if user is either a Seller or Admin
+ * Middleware to verify if user is either a Seller or Admin (deprecated)
+ * @deprecated Use business-level role checking instead
  */
 export const isSellerOrAdmin = (
     req: Request,
@@ -161,7 +190,8 @@ export const isSellerOrAdmin = (
 };
 
 /**
- * Middleware to verify if user is either a User or Admin
+ * Middleware to verify if user is either a User or Admin (deprecated)
+ * @deprecated Use business-level role checking instead
  */
 export const isUserOrAdmin = (
     req: Request,

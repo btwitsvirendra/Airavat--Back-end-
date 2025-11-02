@@ -13,7 +13,9 @@ model users {
   user_id        BigInt    @id @default(autoincrement()) @db.BigInt
   email          String    @unique @db.VarChar(255)
   password_hash  String    @db.Text
-  role           String    @db.VarChar(20) // 'user','seller','admin'
+  full_name      String?   @db.VarChar(255) // User's full name
+  phone          String?   @db.VarChar(20) // Contact number
+  role           String    @default("business_owner") @db.VarChar(20) // 'business_owner', 'admin'
   is_verified    Boolean   @default(false)
   status         String    @default("active") @db.VarChar(20) // 'active', 'inactive', 'suspended'
   email_verified Boolean   @default(false)
@@ -21,8 +23,8 @@ model users {
   created_at     DateTime  @default(now())
   updated_at     DateTime  @default(now()) @updatedAt
 
-  // Relations
-  buyer_businesses business[] @relation("user_buyer_businesses")
+  // Relations - One user can have multiple businesses
+  businesses business[] @relation("user_businesses")
 
   @@map("users")
 }
@@ -43,12 +45,22 @@ model business_types {
 
 model business {
   business_id           BigInt    @id @default(autoincrement()) @db.BigInt
-  user_id               BigInt?   @db.BigInt
+  user_id               BigInt    @db.BigInt // Required - every business must have an owner
   business_type_id      BigInt?   @db.BigInt
   business_name         String    @db.VarChar(255)
   display_name          String?   @db.VarChar(255)
   company_legal_name    String?   @db.VarChar(255)
   description           String?   @db.Text
+  
+  // Indian Business Identifiers
+  gst_number            String?   @db.VarChar(15) // GST Number (15 chars)
+  pan_number            String?   @db.VarChar(10) // PAN Number (10 chars)
+  msme_number           String?   @db.VarChar(50) // MSME/Udyog Aadhaar
+  
+  // Business Roles - can be buyer, seller, or both
+  can_buy               Boolean   @default(true) // Can purchase products
+  can_sell              Boolean   @default(false) // Can list products for sale
+  
   license_number        String?   @db.VarChar(100)
   tax_number            String?   @db.VarChar(100)
   website_url           String?   @db.VarChar(255)
@@ -71,7 +83,7 @@ model business {
 
   // Relations
   business_type business_types? @relation(fields: [business_type_id], references: [business_type_id])
-  user          users?          @relation("user_buyer_businesses", fields: [user_id], references: [user_id])
+  user          users            @relation("user_businesses", fields: [user_id], references: [user_id], onDelete: Cascade)
 
   documents          business_documents[]   @relation("business_documents")
   buyer_connections  business_connections[] @relation("buyer_connections")
@@ -379,97 +391,4 @@ model quotations {
   @@index([seller_business_id])
   @@index([status])
   @@map("quotations")
-}
-
-// ==================== LEGACY SELLER MODELS (Keep for compatibility) ====================
-
-model Seller {
-  seller_id      BigInt   @id @default(autoincrement()) @db.BigInt
-  company_name   String   @db.VarChar(255)
-  contact_person String?  @db.VarChar(100)
-  email          String   @unique @db.VarChar(255)
-  phone          String?  @db.VarChar(40)
-  is_verified    Boolean  @default(false)
-  is_active      Boolean  @default(true)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @default(now())
-
-  // relations
-  addresses     SellerAddress[]     @relation("Seller_addresses")
-  auth          SellerAuth?         @relation("Seller_auth")
-  bank_accounts SellerBankAccount[] @relation("Seller_bank_accounts")
-  documents     SellerDocument[]    @relation("Seller_documents")
-  stats         SellerStat?         @relation("Seller_stats")
-
-  @@map("sellers")
-}
-
-model SellerAddress {
-  address_id  BigInt   @id @default(autoincrement()) @db.BigInt
-  seller_id   BigInt   @db.BigInt
-  label       String?  @db.VarChar(50)
-  address     String?  @db.Text
-  city        String?  @db.VarChar(100)
-  state       String?  @db.VarChar(100)
-  country     String?  @db.VarChar(100)
-  postal_code String?  @db.VarChar(20)
-  is_primary  Boolean  @default(false)
-  created_at  DateTime @default(now())
-
-  seller Seller @relation("Seller_addresses", fields: [seller_id], references: [seller_id], onDelete: Cascade)
-
-  @@index([seller_id])
-  @@map("seller_addresses")
-}
-
-model SellerAuth {
-  seller_id            BigInt    @id @db.BigInt
-  password_hash        String    @db.Text
-  last_password_change DateTime?
-  failed_logins        Int       @default(0)
-
-  seller Seller @relation("Seller_auth", fields: [seller_id], references: [seller_id], onDelete: Cascade)
-
-  @@map("seller_auth")
-}
-
-model SellerBankAccount {
-  bank_account_id BigInt   @id @default(autoincrement()) @db.BigInt
-  seller_id       BigInt   @db.BigInt
-  bank_name       String?  @db.VarChar(100)
-  account_token   String?  @db.Text
-  ifsc_code       String?  @db.VarChar(20)
-  is_active       Boolean  @default(true)
-  created_at      DateTime @default(now())
-
-  seller Seller @relation("Seller_bank_accounts", fields: [seller_id], references: [seller_id], onDelete: Cascade)
-
-  @@index([seller_id])
-  @@map("seller_bank_accounts")
-}
-
-model SellerDocument {
-  document_id BigInt   @id @default(autoincrement()) @db.BigInt
-  seller_id   BigInt?  @db.BigInt
-  doc_type    String?  @db.VarChar(50)
-  storage_key String   @db.Text
-  verified    Boolean  @default(false)
-  uploaded_at DateTime @default(now())
-
-  seller Seller? @relation("Seller_documents", fields: [seller_id], references: [seller_id], onDelete: Cascade)
-
-  @@index([seller_id])
-  @@map("seller_documents")
-}
-
-model SellerStat {
-  seller_id         BigInt    @id @db.BigInt
-  commission_rate   Decimal?  @default("5.00") @db.Decimal(5, 2)
-  rating            Decimal?  @default("0.00") @db.Decimal(3, 2)
-  total_sales_cents BigInt    @default(0) @db.BigInt
-  last_sale_at      DateTime?
-
-  seller Seller @relation("Seller_stats", fields: [seller_id], references: [seller_id], onDelete: Cascade)
-
-  @@map("seller_stats")
 }

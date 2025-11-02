@@ -12,6 +12,8 @@ import { authenticateToken, isAdmin } from '../middlewares/auth-middleware';
 
 const router = Router();
 
+router.use(authenticateToken, isAdmin);
+
 // Public routes
 router.get('/', getAllPriceUnits);
 router.get('/type/:type', getPriceUnitsByType);

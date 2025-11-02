@@ -9,22 +9,129 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 
-// Create User
+// Register User with Business Profile
+export async function registerUser(req: Request, res: Response) {
+  try {
+    const { 
+      // User details
+      email, 
+      password,
+      full_name,
+      phone,
+      
+      // Business details
+      business_name,
+      business_type_id,
+      can_buy,
+      can_sell,
+      gst_number,
+      pan_number,
+      msme_number,
+      description,
+      address_line1,
+      city,
+      state,
+      country,
+      pincode
+    } = req.body;
+
+    // Validate required fields
+    if (!email || !password || !full_name || !business_name || !phone) {
+      return res.status(400).json({ 
+        error: "Missing required fields: email, password, full_name, business_name, phone" 
+      });
+    }
+
+    // At least one role must be selected
+    if (!can_buy && !can_sell) {
+      return res.status(400).json({ 
+        error: "Business must have at least one role: buyer or seller" 
+      });
+    }
+
+    // Check if user with this email already exists
+    const existingUser = await prisma.users.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return res.status(409).json({ error: "User with this email already exists" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user and business in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user
+      const newUser = await tx.users.create({
+        data: {
+          email,
+          password_hash: hashedPassword,
+          full_name,
+          phone,
+          role: 'business_owner',
+          is_verified: false,
+          status: 'active',
+          email_verified: false,
+        },
+      });
+
+      // Create business profile
+      const newBusiness = await tx.business.create({
+        data: {
+          user_id: newUser.user_id,
+          business_name,
+          business_type_id: business_type_id ? BigInt(business_type_id) : null,
+          can_buy: can_buy || true,
+          can_sell: can_sell || false,
+          gst_number,
+          pan_number,
+          msme_number,
+          description,
+          address_line1,
+          city,
+          state,
+          country: country || 'India',
+          pincode,
+        },
+      });
+
+      return { user: newUser, business: newBusiness };
+    });
+
+    const safeResult = convertBigIntToString(result);
+    return res.status(201).json({
+      message: "User and business registered successfully",
+      user: {
+        user_id: safeResult.user.user_id,
+        email: safeResult.user.email,
+        full_name: safeResult.user.full_name,
+        phone: safeResult.user.phone,
+      },
+      business: safeResult.business,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "Failed to register user" });
+  }
+}
+
+// Create User (Admin only - for direct user creation)
 export async function createUser(req: Request, res: Response) {
   try {
     const { 
       email, 
       password, 
-      role, 
+      full_name,
+      phone,
+      role,
       is_verified,
       status,
       email_verified,
-      last_login,
-      created_at
     } = req.body;
 
-    if (!email || !password || !role) {
-      return res.status(400).json({ error: "Missing required fields" });
+    if (!email || !password || !full_name) {
+      return res.status(400).json({ error: "Missing required fields: email, password, full_name" });
     }
 
     // Check if user with this email already exists
@@ -43,12 +150,12 @@ export async function createUser(req: Request, res: Response) {
       data: {
         email,
         password_hash: hashedPassword,
-        role,
+        full_name,
+        phone,
+        role: role || 'business_owner',
         is_verified: is_verified || false,
         status: status || 'active',
         email_verified: email_verified || false,
-        last_login: last_login || null,
-        created_at: created_at || new Date(),
       },
     });
 
@@ -133,7 +240,7 @@ export async function deleteUser(req: Request, res: Response) {
   }
 }
 
-// User Login
+// User Login with Business Data
 export async function loginUser(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
@@ -144,6 +251,13 @@ export async function loginUser(req: Request, res: Response) {
 
     const user = await prisma.users.findUnique({
       where: { email },
+      include: {
+        businesses: {
+          include: {
+            business_type: true,
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -165,14 +279,29 @@ export async function loginUser(req: Request, res: Response) {
     const safeUser = convertBigIntToString({
       user_id: user.user_id,
       email: user.email,
+      full_name: user.full_name,
+      phone: user.phone,
       role: user.role,
       is_verified: user.is_verified,
       status: user.status,
+      businesses: user.businesses,
     });
 
-    const token = sign({ userId: user.user_id.toString(), role: user.role }, process.env.JWT_SECRET || 'your_jwt_secret', { expiresIn: '1h' });
+    const token = sign(
+      { 
+        userId: user.user_id.toString(), 
+        role: user.role,
+        email: user.email 
+      }, 
+      process.env.JWT_SECRET || 'your_jwt_secret', 
+      { expiresIn: '7d' }
+    );
 
-    res.json({ message: "Login successful", user: safeUser, token });
+    res.json({ 
+      message: "Login successful", 
+      user: safeUser, 
+      token 
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Login failed" });
   }

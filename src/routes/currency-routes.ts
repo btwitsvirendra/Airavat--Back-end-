@@ -11,6 +11,8 @@ import { authenticateToken, isAdmin } from '../middlewares/auth-middleware';
 
 const router = Router();
 
+router.use(authenticateToken, isAdmin);
+
 // Public routes
 router.get('/', getAllCurrencies);
 router.get('/:id', getCurrencyById);
