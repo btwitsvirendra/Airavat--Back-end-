@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import { convertBigIntToString } from '../utils/main';
+import { transformCategory } from '../utils/transform-response';
 
 const prisma = new PrismaClient();
 
@@ -54,7 +55,8 @@ export async function getAllCategories(req: Request, res: Response) {
       }
     });
     const safeCategories = convertBigIntToString(categories);
-    res.json({ message: "Fetched all categories successfully", categories: safeCategories });
+    const transformedCategories = safeCategories.map(transformCategory);
+    res.json({ message: "Fetched all categories successfully", categories: transformedCategories });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch categories" });
   }
@@ -77,7 +79,8 @@ export async function getCategoryById(req: Request, res: Response) {
     }
 
     const safeCategory = convertBigIntToString(category);
-    res.json({ message: "Category fetched successfully", category: safeCategory });
+    const transformedCategory = transformCategory(safeCategory);
+    res.json({ message: "Category fetched successfully", category: transformedCategory });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch category" });
   }
@@ -96,7 +99,8 @@ export async function getRootCategories(req: Request, res: Response) {
       }
     });
     const safeCategories = convertBigIntToString(categories);
-    res.json({ message: "Fetched root categories successfully", categories: safeCategories });
+    const transformedCategories = safeCategories.map(transformCategory);
+    res.json({ message: "Fetched root categories successfully", categories: transformedCategories });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch root categories" });
   }

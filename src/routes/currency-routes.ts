@@ -11,14 +11,12 @@ import { authenticateToken, isAdmin } from '../middlewares/auth-middleware';
 
 const router = Router();
 
-router.use(authenticateToken, isAdmin);
-
-// Public routes
+// Public routes (no authentication required)
 router.get('/', getAllCurrencies);
-router.get('/:id', getCurrencyById);
 router.get('/code/:code', getCurrencyByCode);
+router.get('/:id', getCurrencyById);
 
-// Admin routes
+// Protected routes (authentication required)
 router.post('/', authenticateToken, isAdmin, createCurrency);
 router.put('/:id', authenticateToken, isAdmin, updateCurrency);
 router.delete('/:id', authenticateToken, isAdmin, deleteCurrency);

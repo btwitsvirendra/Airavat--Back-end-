@@ -11,14 +11,14 @@ import { authenticateToken, isSellerOrAdmin } from "../middlewares/auth-middlewa
 
 const router = Router();
 
-router.use(authenticateToken, isSellerOrAdmin);
-
-// Product routes
-router.post("/", createProduct);
+// Public routes (no authentication required)
 router.get("/", getAllProducts);
 router.get("/search", searchProducts);
 router.get("/:id", getProductById);
-router.put("/:id", updateProduct);
-router.delete("/:id", deleteProduct);
+
+// Protected routes (authentication required)
+router.post("/", authenticateToken, isSellerOrAdmin, createProduct);
+router.put("/:id", authenticateToken, isSellerOrAdmin, updateProduct);
+router.delete("/:id", authenticateToken, isSellerOrAdmin, deleteProduct);
 
 export default router;

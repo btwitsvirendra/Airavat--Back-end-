@@ -11,14 +11,14 @@ import { authenticateToken, isAdmin } from "../middlewares/auth-middleware";
 
 const router = Router();
 
-router.use(authenticateToken, isAdmin);
-
-// Category routes
-router.post("/", createCategory);
+// Public routes (no authentication required)
 router.get("/", getAllCategories);
 router.get("/root", getRootCategories);
 router.get("/:id", getCategoryById);
-router.put("/:id", updateCategory);
-router.delete("/:id", deleteCategory);
+
+// Protected routes (authentication required)
+router.post("/", authenticateToken, isAdmin, createCategory);
+router.put("/:id", authenticateToken, isAdmin, updateCategory);
+router.delete("/:id", authenticateToken, isAdmin, deleteCategory);
 
 export default router;

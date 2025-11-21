@@ -12,6 +12,7 @@ declare global {
                 userId: string;
                 role: string;
                 email?: string;
+                businessId?: string;
             };
         }
     }
@@ -50,11 +51,17 @@ export const authenticateToken = (
             process.env.JWT_SECRET || 'your_jwt_secret'
         ) as JwtPayload;
 
+        // Get businessId from query, body, or headers if provided
+        const businessId = req.query.business_id as string || 
+                          req.body.business_id || 
+                          req.headers['x-business-id'] as string;
+
         // Attach user info to request
         req.user = {
             userId: decoded.userId,
             role: decoded.role,
             email: decoded.email,
+            businessId: businessId, // Optional - can be set by client
         };
 
         next();

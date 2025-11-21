@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import { convertBigIntToString } from '../utils/main';
+import { transformProduct } from '../utils/transform-response';
 
 const prisma = new PrismaClient();
 
@@ -96,7 +97,8 @@ export async function getAllProducts(req: Request, res: Response) {
       }
     });
     const safeProducts = convertBigIntToString(products);
-    res.json({ message: "Fetched all products successfully", products: safeProducts });
+    const transformedProducts = safeProducts.map(transformProduct);
+    res.json({ message: "Fetched all products successfully", products: transformedProducts });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch products" });
   }
@@ -122,7 +124,8 @@ export async function getProductById(req: Request, res: Response) {
     }
 
     const safeProduct = convertBigIntToString(product);
-    res.json({ message: "Product fetched successfully", product: safeProduct });
+    const transformedProduct = transformProduct(safeProduct);
+    res.json({ message: "Product fetched successfully", product: transformedProduct });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch product" });
   }
@@ -206,7 +209,8 @@ export async function searchProducts(req: Request, res: Response) {
     });
 
     const safeProducts = convertBigIntToString(products);
-    res.json({ message: "Search completed successfully", products: safeProducts });
+    const transformedProducts = safeProducts.map(transformProduct);
+    res.json({ message: "Search completed successfully", products: transformedProducts });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Search failed" });
   }

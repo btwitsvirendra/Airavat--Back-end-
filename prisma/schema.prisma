@@ -25,6 +25,8 @@ model users {
 
   // Relations - One user can have multiple businesses
   businesses business[] @relation("user_businesses")
+  notifications notifications[] @relation("user_notifications")
+  cart_items cart_items[]
 
   @@map("users")
 }
@@ -96,6 +98,19 @@ model business {
   seller_quotations quotations[] @relation("seller_quotations")
   reviewer_reviews  reviews[]    @relation("reviewer_reviews")
   reviewed_reviews  reviews[]    @relation("reviewed_reviews")
+  
+  // Chat relations
+  buyer_conversations  conversations[] @relation("buyer_conversations")
+  seller_conversations conversations[] @relation("seller_conversations")
+  sent_messages        chat_messages[] @relation("message_senders")
+  notifications        notifications[] @relation("business_notifications")
+
+  // Payment & Invoice relations
+  seller_payment_links payment_links[] @relation("seller_payment_links")
+  buyer_payment_links payment_links[] @relation("buyer_payment_links")
+  seller_invoices      invoices[]      @relation("seller_invoices")
+  buyer_invoices       invoices[]      @relation("buyer_invoices")
+  buyer_cart_items      cart_items[]    @relation("buyer_cart_items")
 
   @@index([user_id])
   @@index([business_type_id])
@@ -174,8 +189,10 @@ model currencies {
   created_at    DateTime @default(now())
 
   // Relations
-  products products[]
-  orders   orders[]
+  products     products[]
+  orders       orders[]
+  payment_links payment_links[]
+  invoices     invoices[]
 
   @@map("currencies")
 }
@@ -228,9 +245,13 @@ model products {
   currency   currencies   @relation(fields: [currency_id], references: [currency_id])
   price_unit price_units? @relation(fields: [price_unit_id], references: [unit_id])
 
-  images      product_images[]
-  order_items order_items[]
-  inquiries   inquiries[]
+  images        product_images[]
+  order_items   order_items[]
+  inquiries     inquiries[]
+  conversations conversations[] @relation("conversation_products")
+  payment_link_items payment_link_items[]
+  invoice_items invoice_items[]
+  cart_items    cart_items[]
 
   @@index([category_id])
   @@index([business_id])
@@ -285,8 +306,11 @@ model orders {
   seller_business business   @relation("seller_orders", fields: [seller_business_id], references: [business_id])
   currency        currencies @relation(fields: [currency_id], references: [currency_id])
 
-  order_items order_items[]
-  reviews     reviews[]
+  order_items      order_items[]
+  reviews          reviews[]
+  conversations    conversations[] @relation("conversation_orders")
+  invoices         invoices[]
+  delivery_options delivery_options[]
 
   @@index([buyer_business_id])
   @@index([seller_business_id])
@@ -362,7 +386,8 @@ model inquiries {
   buyer_business business  @relation("buyer_inquiries", fields: [buyer_business_id], references: [business_id])
   product        products? @relation(fields: [product_id], references: [product_id])
 
-  quotations quotations[]
+  quotations    quotations[]
+  conversations conversations[] @relation("conversation_inquiries")
 
   @@index([buyer_business_id])
   @@index([product_id])
@@ -391,4 +416,275 @@ model quotations {
   @@index([seller_business_id])
   @@index([status])
   @@map("quotations")
+}
+
+// ==================== CHAT & MESSAGING ====================
+
+model conversations {
+  conversation_id BigInt   @id @default(autoincrement()) @db.BigInt
+  buyer_business_id BigInt @db.BigInt
+  seller_business_id BigInt @db.BigInt
+  product_id      BigInt?  @db.BigInt // Optional - can chat without product
+  inquiry_id      BigInt?  @db.BigInt // Optional - can chat about inquiry
+  order_id        BigInt?  @db.BigInt // Optional - can chat about order
+  last_message_at DateTime?
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
+
+  // Relations
+  buyer_business  business  @relation("buyer_conversations", fields: [buyer_business_id], references: [business_id])
+  seller_business business @relation("seller_conversations", fields: [seller_business_id], references: [business_id])
+  product         products? @relation("conversation_products", fields: [product_id], references: [product_id])
+  inquiry         inquiries? @relation("conversation_inquiries", fields: [inquiry_id], references: [inquiry_id])
+  order           orders? @relation("conversation_orders", fields: [order_id], references: [order_id])
+  
+  messages      chat_messages[]
+  payment_links payment_links[]
+
+  @@unique([buyer_business_id, seller_business_id, product_id])
+  @@index([buyer_business_id])
+  @@index([seller_business_id])
+  @@index([product_id])
+  @@index([last_message_at])
+  @@map("conversations")
+}
+
+model chat_messages {
+  message_id      BigInt   @id @default(autoincrement()) @db.BigInt
+  conversation_id BigInt   @db.BigInt
+  sender_business_id BigInt @db.BigInt
+  message_type    String   @default("text") @db.VarChar(50) // 'text', 'product', 'quote', 'order', 'file', 'image'
+  content         String?  @db.Text
+  metadata        Json?    // For product links, quotes, orders, etc.
+  is_read         Boolean  @default(false)
+  read_at         DateTime?
+  is_deleted      Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
+
+  // Relations
+  conversation    conversations @relation(fields: [conversation_id], references: [conversation_id], onDelete: Cascade)
+  sender_business business      @relation("message_senders", fields: [sender_business_id], references: [business_id])
+
+  @@index([conversation_id])
+  @@index([sender_business_id])
+  @@index([created_at])
+  @@index([is_read])
+  @@map("chat_messages")
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model notifications {
+  notification_id BigInt   @id @default(autoincrement()) @db.BigInt
+  user_id         BigInt   @db.BigInt
+  business_id     BigInt?  @db.BigInt // Optional - can be user-level or business-level
+  type            String   @db.VarChar(50) // 'message', 'order', 'inquiry', 'quotation', 'review', 'system'
+  title           String   @db.VarChar(255)
+  message         String   @db.Text
+  link            String?  @db.VarChar(500)
+  metadata        Json?    // Additional data
+  is_read         Boolean  @default(false)
+  read_at         DateTime?
+  created_at      DateTime @default(now())
+
+  // Relations
+  user     users      @relation("user_notifications", fields: [user_id], references: [user_id], onDelete: Cascade)
+  business business?  @relation("business_notifications", fields: [business_id], references: [business_id])
+
+  @@index([user_id])
+  @@index([business_id])
+  @@index([is_read])
+  @@index([created_at])
+  @@map("notifications")
+}
+
+// ==================== PAYMENT LINKS & NEGOTIATED PRICES ====================
+
+model payment_links {
+  payment_link_id    BigInt    @id @default(autoincrement()) @db.BigInt
+  seller_business_id BigInt    @db.BigInt
+  buyer_business_id  BigInt?   @db.BigInt // Nullable for public links
+  conversation_id    BigInt?   @db.BigInt // Link to conversation where negotiated
+  link_code          String    @unique @db.VarChar(100) // Unique code for the link
+  title              String?   @db.VarChar(255)
+  description        String?   @db.Text
+  currency_id        Int       @default(1)
+  total_amount       Decimal   @db.Decimal(15, 2)
+  tax_amount         Decimal?  @db.Decimal(15, 2)
+  discount_amount    Decimal?  @db.Decimal(15, 2)
+  final_amount       Decimal   @db.Decimal(15, 2)
+  status             String    @default("active") @db.VarChar(50) // 'active', 'used', 'expired', 'cancelled'
+  expires_at         DateTime?
+  is_negotiated      Boolean   @default(false) // True if prices were negotiated
+  payment_gateway    String?   @db.VarChar(50) // 'razorpay', 'stripe', 'paypal', etc.
+  payment_gateway_id String?   @db.VarChar(255) // Gateway's payment link ID
+  metadata           Json?     // Additional payment gateway data
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @default(now()) @updatedAt
+  used_at            DateTime?
+
+  // Relations
+  seller_business business   @relation("seller_payment_links", fields: [seller_business_id], references: [business_id])
+  buyer_business  business?  @relation("buyer_payment_links", fields: [buyer_business_id], references: [business_id])
+  conversation    conversations? @relation(fields: [conversation_id], references: [conversation_id])
+  currency        currencies @relation(fields: [currency_id], references: [currency_id])
+
+  payment_link_items payment_link_items[]
+  invoices          invoices[]
+  delivery_options  delivery_options[]
+
+  @@index([seller_business_id])
+  @@index([buyer_business_id])
+  @@index([conversation_id])
+  @@index([link_code])
+  @@index([status])
+  @@map("payment_links")
+}
+
+model payment_link_items {
+  payment_link_item_id BigInt   @id @default(autoincrement()) @db.BigInt
+  payment_link_id      BigInt   @db.BigInt
+  product_id           BigInt   @db.BigInt
+  product_name         String   @db.VarChar(255)
+  quantity             Int
+  negotiated_price     Decimal? @db.Decimal(15, 2) // Negotiated price per unit (if different from base)
+  base_price           Decimal  @db.Decimal(15, 2) // Original product price
+  unit_price           Decimal  @db.Decimal(15, 2) // Final price per unit (negotiated or base)
+  discount_rate        Decimal? @db.Decimal(5, 2)
+  tax_rate             Decimal? @db.Decimal(5, 2)
+  total_price          Decimal  @db.Decimal(15, 2)
+  notes                String?  @db.Text
+  created_at           DateTime  @default(now())
+
+  // Relations
+  payment_link payment_links @relation(fields: [payment_link_id], references: [payment_link_id], onDelete: Cascade)
+  product      products      @relation(fields: [product_id], references: [product_id])
+
+  @@index([payment_link_id])
+  @@index([product_id])
+  @@map("payment_link_items")
+}
+
+// ==================== INVOICES ====================
+
+model invoices {
+  invoice_id        BigInt    @id @default(autoincrement()) @db.BigInt
+  invoice_number    String    @unique @db.VarChar(100)
+  order_id          BigInt?   @db.BigInt
+  payment_link_id   BigInt?   @db.BigInt
+  seller_business_id BigInt   @db.BigInt
+  buyer_business_id BigInt   @db.BigInt
+  currency_id       Int       @default(1)
+  subtotal          Decimal   @db.Decimal(15, 2)
+  tax_amount        Decimal?  @db.Decimal(15, 2)
+  discount_amount   Decimal?  @db.Decimal(15, 2)
+  shipping_amount  Decimal?  @db.Decimal(15, 2)
+  total_amount      Decimal   @db.Decimal(15, 2)
+  status            String    @default("draft") @db.VarChar(50) // 'draft', 'sent', 'paid', 'cancelled'
+  invoice_date      DateTime  @default(now())
+  due_date          DateTime?
+  paid_at           DateTime?
+  notes             String?   @db.Text
+  pdf_url           String?   @db.Text
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @default(now()) @updatedAt
+
+  // Relations
+  order            orders?    @relation(fields: [order_id], references: [order_id])
+  payment_link     payment_links? @relation(fields: [payment_link_id], references: [payment_link_id])
+  seller_business  business  @relation("seller_invoices", fields: [seller_business_id], references: [business_id])
+  buyer_business   business  @relation("buyer_invoices", fields: [buyer_business_id], references: [business_id])
+  currency         currencies @relation(fields: [currency_id], references: [currency_id])
+
+  invoice_items invoice_items[]
+
+  @@index([order_id])
+  @@index([payment_link_id])
+  @@index([seller_business_id])
+  @@index([buyer_business_id])
+  @@index([invoice_number])
+  @@index([status])
+  @@map("invoices")
+}
+
+model invoice_items {
+  invoice_item_id BigInt   @id @default(autoincrement()) @db.BigInt
+  invoice_id      BigInt   @db.BigInt
+  product_id      BigInt   @db.BigInt
+  product_name    String   @db.VarChar(255)
+  quantity        Int
+  unit_price      Decimal  @db.Decimal(15, 2)
+  discount_rate   Decimal? @db.Decimal(5, 2)
+  tax_rate        Decimal? @db.Decimal(5, 2)
+  total_price     Decimal  @db.Decimal(15, 2)
+  description     String?  @db.Text
+  created_at      DateTime @default(now())
+
+  // Relations
+  invoice invoices @relation(fields: [invoice_id], references: [invoice_id], onDelete: Cascade)
+  product products @relation(fields: [product_id], references: [product_id])
+
+  @@index([invoice_id])
+  @@index([product_id])
+  @@map("invoice_items")
+}
+
+// ==================== CART ====================
+
+model cart_items {
+  cart_item_id    BigInt   @id @default(autoincrement()) @db.BigInt
+  user_id         BigInt?  @db.BigInt // Nullable for guest carts
+  business_id     BigInt?  @db.BigInt // Buyer business ID
+  session_id      String?  @db.VarChar(255) // For guest carts
+  product_id      BigInt   @db.BigInt
+  quantity        Int
+  negotiated_price Decimal? @db.Decimal(15, 2) // If price was negotiated
+  delivery_option String?  @db.VarChar(50) // 'pickup', 'buyer_delivery', 'seller_delivery', 'platform_delivery'
+  delivery_notes   String?  @db.Text
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
+
+  // Relations
+  user     users?    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  business business? @relation("buyer_cart_items", fields: [business_id], references: [business_id], onDelete: Cascade)
+  product  products  @relation(fields: [product_id], references: [product_id])
+
+  @@unique([user_id, product_id, delivery_option])
+  @@unique([business_id, product_id, delivery_option])
+  @@unique([session_id, product_id, delivery_option])
+  @@index([user_id])
+  @@index([business_id])
+  @@index([session_id])
+  @@index([product_id])
+  @@map("cart_items")
+}
+
+// ==================== DELIVERY OPTIONS ====================
+
+model delivery_options {
+  delivery_option_id BigInt   @id @default(autoincrement()) @db.BigInt
+  order_id           BigInt?  @db.BigInt
+  payment_link_id    BigInt?  @db.BigInt
+  option_type        String   @db.VarChar(50) // 'pickup', 'buyer_delivery', 'seller_delivery', 'platform_delivery'
+  delivery_partner   String?  @db.VarChar(255) // Name of delivery partner if buyer_delivery
+  pickup_address     String?  @db.Text
+  delivery_address   String?  @db.Text
+  estimated_cost     Decimal? @db.Decimal(15, 2)
+  estimated_days     Int?
+  tracking_number    String?  @db.VarChar(255)
+  status             String   @default("pending") @db.VarChar(50) // 'pending', 'confirmed', 'in_transit', 'delivered', 'cancelled'
+  notes              String?  @db.Text
+  created_at         DateTime @default(now())
+  updated_at         DateTime @default(now()) @updatedAt
+
+  // Relations
+  order        orders?       @relation(fields: [order_id], references: [order_id])
+  payment_link payment_links? @relation(fields: [payment_link_id], references: [payment_link_id])
+
+  @@index([order_id])
+  @@index([payment_link_id])
+  @@index([status])
+  @@map("delivery_options")
 }

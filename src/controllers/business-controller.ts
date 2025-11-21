@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import { convertBigIntToString } from '../utils/main';
+import { transformBusiness, transformProduct } from '../utils/transform-response';
 
 const prisma = new PrismaClient();
 
@@ -82,9 +83,10 @@ export async function createBusiness(req: Request, res: Response) {
     });
 
     const safeBusiness = convertBigIntToString(newBusiness);
+    const transformedBusiness = transformBusiness(safeBusiness);
     return res.status(201).json({
       message: "Business created successfully",
-      business: safeBusiness,
+      business: transformedBusiness,
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to create business" });
@@ -100,7 +102,8 @@ export async function getAllBusinesses(req: Request, res: Response) {
       }
     });
     const safeBusinesses = convertBigIntToString(businesses);
-    res.json({ message: "Fetched all businesses successfully", businesses: safeBusinesses });
+    const transformedBusinesses = safeBusinesses.map(transformBusiness);
+    res.json({ message: "Fetched all businesses successfully", businesses: transformedBusinesses });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch businesses" });
   }
@@ -122,7 +125,8 @@ export async function getBusinessById(req: Request, res: Response) {
     }
 
     const safeBusiness = convertBigIntToString(business);
-    res.json({ message: "Business fetched successfully", business: safeBusiness });
+    const transformedBusiness = transformBusiness(safeBusiness);
+    res.json({ message: "Business fetched successfully", business: transformedBusiness });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch business" });
   }
@@ -140,7 +144,8 @@ export async function updateBusiness(req: Request, res: Response) {
     });
 
     const safeBusiness = convertBigIntToString(updatedBusiness);
-    res.json({ message: "Business updated successfully", business: safeBusiness });
+    const transformedBusiness = transformBusiness(safeBusiness);
+    res.json({ message: "Business updated successfully", business: transformedBusiness });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to update business" });
   }
@@ -176,9 +181,10 @@ export async function getBusinessesByUserId(req: Request, res: Response) {
     });
 
     const safeBusinesses = convertBigIntToString(businesses);
+    const transformedBusinesses = safeBusinesses.map(transformBusiness);
     res.json({ 
       message: "Fetched user businesses successfully", 
-      businesses: safeBusinesses 
+      businesses: transformedBusinesses 
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch businesses" });
@@ -200,9 +206,17 @@ export async function getSellerBusinesses(req: Request, res: Response) {
     });
 
     const safeBusinesses = convertBigIntToString(businesses);
+    const transformedBusinesses = safeBusinesses.map((biz: any) => {
+      const transformed = transformBusiness(biz);
+      // Transform products if they exist
+      if (biz.products && Array.isArray(biz.products)) {
+        transformed.products = biz.products.map(transformProduct);
+      }
+      return transformed;
+    });
     res.json({ 
       message: "Fetched seller businesses successfully", 
-      businesses: safeBusinesses 
+      businesses: transformedBusinesses 
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch seller businesses" });
@@ -231,9 +245,10 @@ export async function updateBusinessRole(req: Request, res: Response) {
     });
 
     const safeBusiness = convertBigIntToString(updatedBusiness);
+    const transformedBusiness = transformBusiness(safeBusiness);
     res.json({ 
       message: "Business role updated successfully", 
-      business: safeBusiness 
+      business: transformedBusiness 
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to update business role" });
@@ -257,9 +272,10 @@ export async function verifyBusiness(req: Request, res: Response) {
     });
 
     const safeBusiness = convertBigIntToString(updatedBusiness);
+    const transformedBusiness = transformBusiness(safeBusiness);
     res.json({ 
       message: "Business verified successfully", 
-      business: safeBusiness 
+      business: transformedBusiness 
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to verify business" });

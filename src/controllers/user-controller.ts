@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import { convertBigIntToString } from '../utils/main';
+import { transformUser, transformBusiness } from '../utils/transform-response';
 import {sign} from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
@@ -101,15 +102,25 @@ export async function registerUser(req: Request, res: Response) {
     });
 
     const safeResult = convertBigIntToString(result);
+    const transformedUser = transformUser(safeResult.user);
+    const transformedBusiness = transformBusiness(safeResult.business);
+    
+    // Generate JWT token
+    const token = sign(
+      { 
+        userId: safeResult.user.user_id.toString(), 
+        role: safeResult.user.role,
+        email: safeResult.user.email 
+      }, 
+      process.env.JWT_SECRET || 'your_jwt_secret', 
+      { expiresIn: '7d' }
+    );
+    
     return res.status(201).json({
       message: "User and business registered successfully",
-      user: {
-        user_id: safeResult.user.user_id,
-        email: safeResult.user.email,
-        full_name: safeResult.user.full_name,
-        phone: safeResult.user.phone,
-      },
-      business: safeResult.business,
+      user: transformedUser,
+      business: transformedBusiness,
+      token,
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to register user" });
@@ -160,9 +171,10 @@ export async function createUser(req: Request, res: Response) {
     });
 
     const safeUser = convertBigIntToString(newUser);
+    const transformedUser = transformUser(safeUser);
     return res.status(201).json({
       message: "User created successfully",
-      user: safeUser,
+      user: transformedUser,
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to create user" });
@@ -178,7 +190,8 @@ export async function getAllUsers(req: Request, res: Response) {
       }
     });
     const safeUsers = convertBigIntToString(users);
-    res.json({ message: "Fetched all users successfully", users: safeUsers });
+    const transformedUsers = safeUsers.map(transformUser);
+    res.json({ message: "Fetched all users successfully", users: transformedUsers });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch users" });
   }
@@ -197,7 +210,8 @@ export async function getUserById(req: Request, res: Response) {
     }
 
     const safeUser = convertBigIntToString(user);
-    res.json({ message: "User fetched successfully", user: safeUser });
+    const transformedUser = transformUser(safeUser);
+    res.json({ message: "User fetched successfully", user: transformedUser });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to fetch user" });
   }
@@ -220,7 +234,8 @@ export async function updateUser(req: Request, res: Response) {
     });
 
     const safeUser = convertBigIntToString(updatedUser);
-    res.json({ message: "User updated successfully", user: safeUser });
+    const transformedUser = transformUser(safeUser);
+    res.json({ message: "User updated successfully", user: transformedUser });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to update user" });
   }
@@ -287,6 +302,9 @@ export async function loginUser(req: Request, res: Response) {
       businesses: user.businesses,
     });
 
+    const transformedUser = transformUser(safeUser);
+    const transformedBusinesses = safeUser.businesses?.map(transformBusiness) || [];
+
     const token = sign(
       { 
         userId: user.user_id.toString(), 
@@ -299,7 +317,10 @@ export async function loginUser(req: Request, res: Response) {
 
     res.json({ 
       message: "Login successful", 
-      user: safeUser, 
+      user: {
+        ...transformedUser,
+        businesses: transformedBusinesses,
+      }, 
       token 
     });
   } catch (err: any) {
