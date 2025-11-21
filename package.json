@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/codermanoj2023/10-nodejs-typescript-project-with-tsup.git"
+    "url": "https://github.com/btwitsvirendra/Airavat-back-end.git"
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs",
